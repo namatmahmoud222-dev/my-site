@@ -10,6 +10,9 @@ import shutil
 from datetime import datetime
 import json
 
+# Secret key loaded from environment variable (set this in Railway dashboard)
+SECRET_KEY = os.environ.get("SECRET_KEY", "changeme-set-in-railway")
+
 app = FastAPI()
 
 # Enable CORS
@@ -207,12 +210,16 @@ async def get_mp3(filename: str):
     from urllib.parse import unquote
     filename = unquote(filename)
     
-    filepath = DOWNLOAD_DIR / filename
-    
+    filepath = (DOWNLOAD_DIR / filename).resolve()
+
+    # Security: prevent path traversal attacks
+    if not filepath.is_relative_to(DOWNLOAD_DIR.resolve()):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
     print(f"Download request for: {filename}")
     print(f"Full path: {filepath}")
     print(f"Exists: {filepath.exists()}")
-    
+
     if not filepath.exists():
         print(f"❌ File not found: {filepath}")
         raise HTTPException(status_code=404, detail=f"File not found: {filename}")
@@ -252,9 +259,6 @@ async def view_logs(access_key: str):
     View security logs. 
     Access key: Change this to your secret key!
     """
-    # Security: Use a secret access key
-    SECRET_KEY = "ilovelujain17"
-    
     if access_key != SECRET_KEY:
         raise HTTPException(status_code=403, detail="Unauthorized access")
     
@@ -274,8 +278,6 @@ async def view_logs_html(access_key: str):
     """
     View security logs in HTML format.
     """
-    SECRET_KEY = "ilovelujain17"
-    
     if access_key != SECRET_KEY:
         raise HTTPException(status_code=403, detail="Unauthorized access")
     

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube to MP3 Converter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #999;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 14px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status.loading {
+            display: block;
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #90caf9;
+        }
+
+        .status.success {
+            display: block;
+            background: #e8f5e9;
+            color: #388e3c;
+            border: 1px solid #81c784;
+        }
+
+        .status.error {
+            display: block;
+            background: #ffebee;
+            color: #d32f2f;
+            border: 1px solid #ef5350;
+        }
+
+        .download-section {
+            display: none;
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .download-section.show {
+            display: block;
+        }
+
+        .song-info {
+            margin-bottom: 20px;
+        }
+
+        .song-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            word-break: break-word;
+            margin-bottom: 10px;
+        }
+
+        .download-button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .download-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info {
+            text-align: center;
+            color: #999;
+            font-size: 12px;
+            margin-top: 20px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 YouTube to MP3</h1>
+        <p class="subtitle">Convert YouTube videos to MP3 instantly</p>
+
+        <div class="input-group">
+            <input 
+                type="text" 
+                id="youtubeUrl" 
+                placeholder="Paste YouTube URL here... (https://youtube.com/watch?v=...)"
+                onkeypress="if(event.key === 'Enter') convertVideo()"
+            >
+            <button onclick="convertVideo()">Convert</button>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div id="downloadSection" class="download-section">
+            <div class="song-info">
+                <div class="song-title" id="songTitle"></div>
+            </div>
+            <button class="download-button" onclick="downloadMP3()">
+                ⬇️ Download MP3
+            </button>
+        </div>
+
+        <div class="info">
+            ℹ️ Paste a YouTube video URL and click Convert to get the MP3 version.
+            <br>The file will be ready to download in a few seconds.
+        </div>
+    </div>
+
+    <script>
+        let currentFilename = null;
+
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        function convertVideo() {
+            const url = document.getElementById('youtubeUrl').value.trim();
+
+            if (!url) {
+                showStatus('❌ Please enter a YouTube URL', 'error');
+                return;
+            }
+
+            if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
+                showStatus('❌ Please enter a valid YouTube URL', 'error');
+                return;
+            }
+
+            showStatus('⏳ Converting video to MP3... This may take a minute or two.', 'loading');
+            document.querySelector('button').disabled = true;
+            document.getElementById('downloadSection').classList.remove('show');
+
+            fetch('http://localhost:8000/download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url: url })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.detail || 'Conversion failed');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                currentFilename = data.filename;
+                document.getElementById('songTitle').textContent = `✅ ${data.message}`;
+                showStatus('✨ Successfully converted! Ready to download.', 'success');
+                document.getElementById('downloadSection').classList.add('show');
+            })
+            .catch(error => {
+                showStatus(`❌ Error: ${error.message}`, 'error');
+                currentFilename = null;
+            })
+            .finally(() => {
+                document.querySelector('button').disabled = false;
+            });
+        }
+
+        function downloadMP3() {
+            if (!currentFilename) {
+                showStatus('❌ No file available for download', 'error');
+                return;
+            }
+
+            // Try using fetch with blob for better FDM compatibility
+            fetch(`http://localhost:8000/download/${encodeURIComponent(currentFilename)}`)
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = currentFilename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                })
+                .catch(error => {
+                    showStatus(`❌ Download failed: ${error.message}`, 'error');
+                });
+        }
+    </script>
+</body>
+</html>

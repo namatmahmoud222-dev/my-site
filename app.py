@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from pytube import YouTube
+import yt_dlp
 import os
 from pathlib import Path
 import shutil
@@ -128,45 +128,81 @@ async def download_mp3(youtube_data: YouTubeURL, background_tasks: BackgroundTas
         
         print(f"🎵 Downloading: {url}")
         
-        # Download using pytube
-        yt = YouTube(url)
-        stream = yt.streams.filter(only_audio=True).first()
+        # Multiple user agents to avoid bot detection
+        user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+        ]
         
-        if not stream:
-            raise Exception("No audio stream available")
+        import time
+        import random
         
-        # Download to downloads folder
-        output_path = stream.download(output_path=str(DOWNLOAD_DIR))
-        audio_file = Path(output_path) / stream.default_filename
+        last_error = None
         
-        title = yt.title
-        # Sanitize filename to remove special characters
-        safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
-        mp3_filename = f"{safe_title}.mp3"
-        mp3_path = DOWNLOAD_DIR / mp3_filename
+        # Retry with different user agents
+        for attempt, user_agent in enumerate(user_agents):
+            try:
+                print(f"   Attempt {attempt + 1}/{len(user_agents)}...")
+                
+                # Configure yt-dlp with rotating user agents
+                ydl_opts = {
+                    'format': 'bestaudio/best',
+                    'postprocessors': [{
+                        'key': 'FFmpegExtractAudio',
+                        'preferredcodec': 'mp3',
+                        'preferredquality': '192',
+                    }],
+                    'outtmpl': str(DOWNLOAD_DIR / '%(title)s'),
+                    'quiet': False,
+                    'no_warnings': False,
+                    'http_headers': {
+                        'User-Agent': user_agent
+                    },
+                    'socket_timeout': 30,
+                    'retries': 5,
+                    'fragment_retries': 5,
+                }
+                
+                # Download and convert to MP3
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
+                    title = info['title']
+                
+                # Find the actual MP3 file that was created
+                time.sleep(1)
+                
+                mp3_files = list(DOWNLOAD_DIR.glob("*.mp3"))
+                
+                if not mp3_files:
+                    raise Exception("MP3 file not found after conversion.")
+                
+                # Get the most recently modified file
+                mp3_file = max(mp3_files, key=lambda p: p.stat().st_mtime)
+                filename = mp3_file.name
+                
+                print(f"✅ MP3 Created: {mp3_file}")
+                print(f"   File size: {mp3_file.stat().st_size / 1024 / 1024:.2f} MB")
+                
+                return DownloadResponse(
+                    message=f"Successfully downloaded: {title}",
+                    filename=filename,
+                    status="success"
+                )
+                
+            except Exception as e:
+                last_error = str(e)
+                print(f"   ❌ Attempt {attempt + 1} failed: {str(e)}")
+                
+                # Wait before retry (exponential backoff)
+                if attempt < len(user_agents) - 1:
+                    wait_time = (attempt + 1) * 2
+                    print(f"   Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
         
-        print(f"✅ Downloaded: {audio_file}")
-        print(f"   Converting to MP3...")
-        
-        # Use ffmpeg to convert to mp3
-        import subprocess
-        subprocess.run([
-            'ffmpeg', '-i', str(audio_file), '-q:a', '0', '-map', 'a',
-            str(mp3_path), '-y'
-        ], capture_output=True, check=True)
-        
-        # Delete original file
-        if audio_file.exists():
-            audio_file.unlink()
-        
-        print(f"✅ MP3 Created: {mp3_path}")
-        print(f"   File size: {mp3_path.stat().st_size / 1024 / 1024:.2f} MB")
-        
-        return DownloadResponse(
-            message=f"Successfully downloaded: {title}",
-            filename=mp3_filename,
-            status="success"
-        )
+        # All attempts failed
+        raise Exception(f"Failed after {len(user_agents)} attempts. Last error: {last_error}")
     
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error downloading video: {str(e)}")

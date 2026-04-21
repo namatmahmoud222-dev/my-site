@@ -128,98 +128,67 @@ async def download_mp3(youtube_data: YouTubeURL, background_tasks: BackgroundTas
         
         print(f"🎵 Downloading: {url}")
         
-        # Multiple user agents to avoid bot detection
-        user_agents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
-        ]
-        
         import time
-        import random
         
-        last_error = None
-        
-        # Retry with different user agents
-        for attempt, user_agent in enumerate(user_agents):
-            try:
-                print(f"   Attempt {attempt + 1}/{len(user_agents)}...")
-                
-                # Configure yt-dlp with browser cookies and headers
-                ydl_opts = {
-                    'format': 'bestaudio/best',
-                    'postprocessors': [{
-                        'key': 'FFmpegExtractAudio',
-                        'preferredcodec': 'mp3',
-                        'preferredquality': '192',
-                    }],
-                    'outtmpl': str(DOWNLOAD_DIR / '%(title)s'),
-                    'quiet': False,
-                    'no_warnings': False,
-                    'http_headers': {
-                        'User-Agent': user_agent,
-                        'Accept-Language': 'en-US,en;q=0.9',
-                    },
-                    'socket_timeout': 30,
-                    'retries': 3,
-                    'fragment_retries': 3,
-                    'extractor_args': {
-                        'youtube': {
-                            'skip': ['hls', 'dash'],
-                        }
-                    },
-                    # Skip age restriction check
-                    'age_limit': 18,
+        # Configure yt-dlp without browser cookies (doesn't work on servers)
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
+            'outtmpl': str(DOWNLOAD_DIR / '%(title)s'),
+            'quiet': False,
+            'no_warnings': False,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Referer': 'https://www.youtube.com/',
+            },
+            'socket_timeout': 30,
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['hls', 'dash'],
                 }
-                
-                # Try to use browser cookies if available
-                try:
-                    ydl_opts['cookiesfrombrowser'] = ('chrome', None)
-                except:
-                    pass
-                
-                # Download and convert to MP3
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(url, download=True)
-                    title = info['title']
-                
-                # Find the actual MP3 file that was created
-                time.sleep(1)
-                
-                mp3_files = list(DOWNLOAD_DIR.glob("*.mp3"))
-                
-                if not mp3_files:
-                    raise Exception("MP3 file not found after conversion.")
-                
-                # Get the most recently modified file
-                mp3_file = max(mp3_files, key=lambda p: p.stat().st_mtime)
-                filename = mp3_file.name
-                
-                print(f"✅ MP3 Created: {mp3_file}")
-                print(f"   File size: {mp3_file.stat().st_size / 1024 / 1024:.2f} MB")
-                
-                return DownloadResponse(
-                    message=f"Successfully downloaded: {title}",
-                    filename=filename,
-                    status="success"
-                )
-                
-            except Exception as e:
-                last_error = str(e)
-                print(f"   ❌ Attempt {attempt + 1} failed: {str(e)}")
-                
-                # Wait before retry (exponential backoff)
-                if attempt < len(user_agents) - 1:
-                    wait_time = (attempt + 1) * 3
-                    print(f"   Retrying in {wait_time} seconds...")
-                    time.sleep(wait_time)
+            },
+            'age_limit': 18,
+            'no_check_certificate': True,
+        }
         
-        # All attempts failed
-        raise Exception(f"Failed after {len(user_agents)} attempts. YouTube requires authentication. Last error: {last_error}")
+        print(f"   Starting download...")
+        
+        # Download and convert to MP3
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            title = info.get('title', 'Unknown')
+        
+        # Find the actual MP3 file that was created
+        time.sleep(2)
+        
+        mp3_files = list(DOWNLOAD_DIR.glob("*.mp3"))
+        
+        if not mp3_files:
+            raise Exception("MP3 file not found after conversion. Check FFmpeg installation.")
+        
+        # Get the most recently modified file
+        mp3_file = max(mp3_files, key=lambda p: p.stat().st_mtime)
+        filename = mp3_file.name
+        
+        print(f"✅ Success! MP3 file: {filename}")
+        print(f"   File size: {mp3_file.stat().st_size / 1024 / 1024:.2f} MB")
+        
+        return DownloadResponse(
+            message=f"Successfully downloaded: {title}",
+            filename=filename,
+            status="success"
+        )
     
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error downloading video: {str(e)}")
+        error_msg = str(e)
+        print(f"❌ Error: {error_msg}")
+        raise HTTPException(status_code=400, detail=f"Error downloading video: {error_msg}")
 
 @app.get("/download/{filename}")
 async def get_mp3(filename: str):

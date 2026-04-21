@@ -243,7 +243,7 @@
             document.querySelector('button').disabled = true;
             document.getElementById('downloadSection').classList.remove('show');
 
-            fetch('http://localhost:8000/download', {
+            fetch('https://my-site-production-4c45.up.railway.app/download', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -280,7 +280,7 @@
             }
 
             // Try using fetch with blob for better FDM compatibility
-            fetch(`http://localhost:8000/download/${encodeURIComponent(currentFilename)}`)
+            fetch(`https://my-site-production-4c45.up.railway.app/download/${encodeURIComponent(currentFilename)}`)
                 .then(response => response.blob())
                 .then(blob => {
                     const url = window.URL.createObjectURL(blob);

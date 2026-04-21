@@ -130,10 +130,10 @@ async def download_mp3(youtube_data: YouTubeURL, background_tasks: BackgroundTas
         
         # Multiple user agents to avoid bot detection
         user_agents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
         ]
         
         import time
@@ -146,7 +146,7 @@ async def download_mp3(youtube_data: YouTubeURL, background_tasks: BackgroundTas
             try:
                 print(f"   Attempt {attempt + 1}/{len(user_agents)}...")
                 
-                # Configure yt-dlp with rotating user agents
+                # Configure yt-dlp with browser cookies and headers
                 ydl_opts = {
                     'format': 'bestaudio/best',
                     'postprocessors': [{
@@ -158,12 +158,26 @@ async def download_mp3(youtube_data: YouTubeURL, background_tasks: BackgroundTas
                     'quiet': False,
                     'no_warnings': False,
                     'http_headers': {
-                        'User-Agent': user_agent
+                        'User-Agent': user_agent,
+                        'Accept-Language': 'en-US,en;q=0.9',
                     },
                     'socket_timeout': 30,
-                    'retries': 5,
-                    'fragment_retries': 5,
+                    'retries': 3,
+                    'fragment_retries': 3,
+                    'extractor_args': {
+                        'youtube': {
+                            'skip': ['hls', 'dash'],
+                        }
+                    },
+                    # Skip age restriction check
+                    'age_limit': 18,
                 }
+                
+                # Try to use browser cookies if available
+                try:
+                    ydl_opts['cookiesfrombrowser'] = ('chrome', None)
+                except:
+                    pass
                 
                 # Download and convert to MP3
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -197,12 +211,12 @@ async def download_mp3(youtube_data: YouTubeURL, background_tasks: BackgroundTas
                 
                 # Wait before retry (exponential backoff)
                 if attempt < len(user_agents) - 1:
-                    wait_time = (attempt + 1) * 2
+                    wait_time = (attempt + 1) * 3
                     print(f"   Retrying in {wait_time} seconds...")
                     time.sleep(wait_time)
         
         # All attempts failed
-        raise Exception(f"Failed after {len(user_agents)} attempts. Last error: {last_error}")
+        raise Exception(f"Failed after {len(user_agents)} attempts. YouTube requires authentication. Last error: {last_error}")
     
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error downloading video: {str(e)}")

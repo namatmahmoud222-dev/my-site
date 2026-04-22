@@ -1,7 +1,6 @@
-fastapi==0.111.0
-uvicorn[standard]==0.30.0
-yt-dlp==2026.3.17
-pydantic==2.7.4
-pydantic-core==2.18.4
-python-multipart==0.0.9
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+yt-dlp==2024.3.10
+pydantic==2.5.0
+python-multipart==0.0.6
 pydub==0.25.1

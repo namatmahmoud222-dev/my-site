@@ -133,7 +133,7 @@ async def download_mp3(youtube_data: YouTubeURL, background_tasks: BackgroundTas
         
         import time
         
-        # Configure yt-dlp with cookies
+        # Configure yt-dlp without cookies
         ydl_opts = {
             'format': 'bestaudio/best',
             'postprocessors': [{
@@ -155,14 +155,6 @@ async def download_mp3(youtube_data: YouTubeURL, background_tasks: BackgroundTas
             'no_check_certificate': True,
             'ignoreerrors': False,
         }
-        
-        # Use cookies file if it exists
-        cookies_file = Path('cookies.txt')
-        if cookies_file.exists():
-            print("   Using cookies.txt for authentication...")
-            ydl_opts['cookiefile'] = str(cookies_file)
-        else:
-            print("   No cookies.txt found - proceeding without cookies")
         
         print(f"   Starting download...")
         

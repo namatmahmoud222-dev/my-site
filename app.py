@@ -10,18 +10,8 @@ import shutil
 from datetime import datetime
 import json
 
-# Secret key loaded from environment variable (set this in Railway dashboard)
-SECRET_KEY = os.environ.get("SECRET_KEY", "changeme-set-in-railway")
-
-# Write cookies.txt from environment variable on startup
-COOKIES_CONTENT = os.environ.get('COOKIES_CONTENT')
-if COOKIES_CONTENT:
-    cookies_path = Path('cookies.txt')
-    with open(cookies_path, 'w', encoding='utf-8') as f:
-        f.write(COOKIES_CONTENT)
-    print('✅ cookies.txt written from environment variable')
-else:
-    print('⚠️ No COOKIES_CONTENT environment variable found')
+# Secret key - use default for local, set in Railway dashboard
+SECRET_KEY = "ilovelujain17"
 
 app = FastAPI()
 

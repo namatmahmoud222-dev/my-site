@@ -129,6 +129,13 @@ async def download_mp3(youtube_data: YouTubeURL, background_tasks: BackgroundTas
         if "youtube.com" not in url and "youtu.be" not in url:
             raise HTTPException(status_code=400, detail="Invalid YouTube URL")
         
+        # If it's a playlist URL, extract only the first video
+        if "list=" in url:
+            print(f"📋 Playlist detected, extracting first video only...")
+            # Remove playlist parameter to get single video
+            url = url.split("&list=")[0]
+            print(f"   Using: {url}")
+        
         print(f"🎵 Downloading: {url}")
         
         # Multiple user agents to avoid bot detection

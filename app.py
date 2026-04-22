@@ -145,7 +145,7 @@ async def download_mp3(youtube_data: YouTubeURL, background_tasks: BackgroundTas
         
         # Configure yt-dlp with cookies
         ydl_opts = {
-            'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
+            'format': 'best[ext=mp4]/best',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',

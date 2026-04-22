@@ -145,7 +145,7 @@ async def download_mp3(youtube_data: YouTubeURL, background_tasks: BackgroundTas
         
         # Configure yt-dlp with cookies
         ydl_opts = {
-            'format': 'bestaudio/best',
+            'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -160,14 +160,10 @@ async def download_mp3(youtube_data: YouTubeURL, background_tasks: BackgroundTas
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Referer': 'https://www.youtube.com/',
             },
-            'socket_timeout': 30,
-            'extractor_args': {
-                'youtube': {
-                    'skip': ['hls', 'dash'],
-                }
-            },
+            'socket_timeout': 60,
             'age_limit': 18,
             'no_check_certificate': True,
+            'ignoreerrors': False,
         }
         
         # Use cookies file if it exists
